@@ -20,7 +20,8 @@ int main(int argc, char* argv)
     sleep(10);
   }
   machineProcessingLoop(msgKey);
-
+  //release the semaphore once operation is finished
+  semctl (semid, 0, IPC_RMID, 0);
   return 0;
 }
 
@@ -85,7 +86,7 @@ void sendMessage(int status, int machineID, long messageType, int msgQueueID)
   int size = sizeof(message) - sizeof(long);
 
   //send message to queue
-  msgsend(msgQueueID, (void*)&message, size, 0);
+  //msgsnd(msgQueueID, (void*)&message, size, 0);
 
   //write to logfile:
   writeToLog(machineID, status);
