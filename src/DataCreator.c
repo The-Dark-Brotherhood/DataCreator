@@ -11,14 +11,15 @@ int main(int argc, char* argv)
     printf("error\n");
   }
   int qID = -1;
-  key_t msgKey = 0;
+  key_t msgKey = ftok(KEY_PATH, 'G');
   //Loop checking for existance of queue, sleeping 10 seconds if not found,
   //then searching again
   while((qID = checkForQueue(msgKey)) < 0)
   {
+    printf("Sleeping\n");
     sleep(10);
   }
-  machineProcessingLoop();
+  machineProcessingLoop(msgKey);
 
   return 0;
 }
@@ -84,7 +85,7 @@ void sendMessage(int status, int machineID, long messageType, int msgQueueID)
   int size = sizeof(message) - sizeof(long);
 
   //send message to queue
-  //msgsend(msgQueueID, (void*)&message, size, 0);
+  msgsend(msgQueueID, (void*)&message, size, 0);
 
   //write to logfile:
   writeToLog(machineID, status);
@@ -95,19 +96,16 @@ void sendMessage(int status, int machineID, long messageType, int msgQueueID)
 //                 file, then wait 10-30 seconds, repeat. Exits until status 6 is
 //                 generated
 //
-// PARAMETERS    : void
+// PARAMETERS    : vint msgKey -> key of message queue
 //
 //  RETURNS      : void
-void machineProcessingLoop(void)
+void machineProcessingLoop(int msgKey)
 {
-  //First get the message queue id
-  int qID = 0;
-
   //get the process ID(to include in message and log)
   int pid = getpid();
 
   //send first message - ALL OKAY
-  sendMessage(EVERYTHING_OKAY, pid, 1, qID);
+  sendMessage(EVERYTHING_OKAY, pid, 1, msgKey);
 
   //seed the random number generator
   srand(time(0));
@@ -120,12 +118,12 @@ void machineProcessingLoop(void)
   while(running)
   {
     //sleep random amount of time
-    //sleep((rand() % 21)+10); //sleep between 10 & 30 seconds
+    sleep((rand() % 21)+10); //sleep between 10 & 30 seconds
 
     //generate random value between 0 & 6
     int machineStatus = ((rand()%7));
     //send the message to the message queue - logging called in sendMessage()
-    sendMessage(machineStatus, pid, 0, qID);
+    sendMessage(machineStatus, pid, 1, msgKey);
 
     //Machine status = "Machine is Off-Line"
     if (machineStatus == 6)

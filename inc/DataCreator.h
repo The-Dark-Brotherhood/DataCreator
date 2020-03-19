@@ -22,6 +22,7 @@
 #define LOG_FILE_PATH   "/tmp/dataCreator.log"
 #define FALSE           0
 #define TRUE            1
+#define KEY_PATH        "/tmp/"
 
 
 typedef struct Messages{
@@ -31,7 +32,7 @@ typedef struct Messages{
 } MachineMessage;
 
 void sendMessage(int status, int machineID, long messageType, int msgQueueID);
-void machineProcessingLoop(void);
+void machineProcessingLoop(int msgKey);
 void writeToLog(int pid, int status);
 void createFilePathIfNotExists(void);
 void getTime(char* output);
