@@ -12,8 +12,6 @@
 #include <sys/stat.h>
 #include <time.h>
 
-
-
 #define MESSAGE_LENGTH  100
 #define MACHINE_ON      1
 #define EVERYTHING_OKAY 0
@@ -22,6 +20,7 @@
 #define LOG_FILE_PATH   "/tmp/dataCreator.log"
 #define FALSE           0
 #define TRUE            1
+#define KEY_PATH        "/tmp/"
 
 
 typedef struct Messages{
@@ -31,23 +30,14 @@ typedef struct Messages{
 } MachineMessage;
 
 void sendMessage(int status, int machineID, long messageType, int msgQueueID);
-void machineProcessingLoop(void);
+void machineProcessingLoop(int msgQueueID);
 void writeToLog(int pid, int status);
 void createFilePathIfNotExists(void);
+int setUpLogSemaphore(void);
+void closeLogSemaphore(int semId);
 void getTime(char* output);
-int checkForQueue(key_t msgKey);
+int getQueueID(void);
 
-#ifndef __SEMAPHORE_STRUCT_H__
-#define __SEMAPHORE_STRUCT_H__
-
-struct sembuf acquire_operation = { 0, -1, SEM_UNDO };
-struct sembuf release_operation = { 0, 1, SEM_UNDO };
-
-unsigned short init_values[1] = { 1 };
-
-#else
-
+//the following is defined in DataCreatorLogging.h
 extern struct sembuf acquire_operation;
 extern struct sembuf release_operation;
-
-#endif
