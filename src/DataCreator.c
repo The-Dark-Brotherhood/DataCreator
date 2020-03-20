@@ -1,67 +1,41 @@
-
 #include "../inc/DataCreator.h"
 
 int main(int argc, char* argv)
 {
 
   //set up the semaphore
-  int semid = semget (KEY, 1, IPC_CREAT | 0777);
-  if (semctl (semid, 0, SETALL, init_values) == -1)
-  {
-    printf("error\n");
-  }
-  int qID = -1;
-  key_t msgKey = ftok(KEY_PATH, 'G');
-  //Loop checking for existance of queue, sleeping 10 seconds if not found,
-  //then searching again
-  while((qID = checkForQueue(msgKey)) < 0)
-  {
-    printf("Sleeping\n");
-    sleep(10);
-  }
-  machineProcessingLoop(msgKey);
+  int semId = setUpLogSemaphore();
+  //get the queue Id
+  int qID = getQueueID();
+  machineProcessingLoop(qID);
+
   //release the semaphore once operation is finished
-  semctl (semid, 0, IPC_RMID, 0);
+  closeLogSemaphore(semId);
   return 0;
 }
 
 
-// FUNCTION      : checkForQueue
+// FUNCTION      : getQueueID
 // DESCRIPTION   : check for the existance of message queue
 //
-// PARAMETERS    :
-//	key_t msgKey -> message queue key to search by
+// PARAMETERS    : none
+//
 //
 //  RETURNS       :   ID of the message queue,
 //                    -1 if the queue does not exist
-int checkForQueue(key_t msgKey)
+int getQueueID(void)
 {
-  int qID = 0;
-  qID = msgget(msgKey,0);
+  int qID = -1;
+  key_t msgKey = ftok(KEY_PATH, 'G');
 
-  //msgget returns -1 if the queue does not exist
+  //Loop checking for existance of queue, sleeping 10 seconds if not found,
+  //then searching again
+  while((qID = msgget(msgKey,0)) < 0)
+  {
+    sleep(10);
+  }
+
   return qID;
-}
-
-// FUNCTION      : getTime
-// DESCRIPTION   : get the current time, formatted according to specifications
-//                 stored in the parameter passed to function
-//
-// PARAMETERS    :
-//	char* output -> pointer to string where formatted time will be ouput
-//
-//  RETURNS       :   void
-void getTime(char* output)
-{
-  //Get time info in time_t struct
-  time_t rawtime;
-  struct tm *info;
-  time( &rawtime );
-  info = localtime(&rawtime);
-
-  //Set the time output to match the requirements
-  //first paramater is where to store outputted string
-  strftime(output, 49, "%F %T",info);
 }
 
 // FUNCTION      : sendMessage
@@ -86,7 +60,7 @@ void sendMessage(int status, int machineID, long messageType, int msgQueueID)
   int size = sizeof(message) - sizeof(long);
 
   //send message to queue
-  //msgsnd(msgQueueID, (void*)&message, size, 0);
+  msgsnd(msgQueueID, (void*)&message, size, 0);
 
   //write to logfile:
   writeToLog(machineID, status);
@@ -100,13 +74,13 @@ void sendMessage(int status, int machineID, long messageType, int msgQueueID)
 // PARAMETERS    : vint msgKey -> key of message queue
 //
 //  RETURNS      : void
-void machineProcessingLoop(int msgKey)
+void machineProcessingLoop(int msgQueueID)
 {
   //get the process ID(to include in message and log)
   int pid = getpid();
 
   //send first message - ALL OKAY
-  sendMessage(EVERYTHING_OKAY, pid, 1, msgKey);
+  sendMessage(EVERYTHING_OKAY, pid, 1, msgQueueID);
 
   //seed the random number generator
   srand(time(0));
@@ -124,7 +98,7 @@ void machineProcessingLoop(int msgKey)
     //generate random value between 0 & 6
     int machineStatus = ((rand()%7));
     //send the message to the message queue - logging called in sendMessage()
-    sendMessage(machineStatus, pid, 1, msgKey);
+    sendMessage(machineStatus, pid, 1, msgQueueID);
 
     //Machine status = "Machine is Off-Line"
     if (machineStatus == 6)
@@ -133,91 +107,4 @@ void machineProcessingLoop(int msgKey)
     }
   }
 
-}
-
-// FUNCTION      : writeToLog
-// DESCRIPTION   : generates output for the logfile, writes to log file
-//                  using a semaphore. Calls getTime() in order to get current
-//                  time for log file.
-//
-// PARAMETERS    : int pid -> process ID
-//                 int status -> status of machine
-//
-//  RETURNS      : void
-void writeToLog(int pid, int status)
-{
-  //get the semaphore ID, create if it doesn't exist
-  int semid = semget (KEY, 1, IPC_CREAT | 0777);
-
-
-  //get the description of the status - values 0-6
-  char description[255] = "";
-  switch(status)
-  {
-    case 0:
-      strcpy(description, "Everything is OKAY");
-      break;
-    case 1:
-      strcpy(description, "Hydraulic Pressure Failure");
-      break;
-    case 2:
-      strcpy(description, "Safety Button Failure");
-      break;
-    case 3:
-      strcpy(description, "No Raw Material in the Process");
-      break;
-    case 4:
-      strcpy(description, "Operating Temperature Out of Range");
-      break;
-    case 5:
-      strcpy(description, "Operator Error");
-      break;
-    case 6:
-      strcpy(description, "Machine is Off-line");
-      break;
-    default:
-      //There should only be a value between 0-6
-      strcpy(description, "ERROR READING STATUS");
-      break;
-  }
-
-  //Check semaphore to see if can access critical region
-  if (semop (semid, &acquire_operation, 1) == -1)
-	{
-	   //Critical ERROR
-	}
-  //Start of critical region
-
-
-  //calculate the current time
-  char time[50] = "";
-  getTime(time);
-
-  //open file, write log entry, then close file
-  FILE * fp = fopen (LOG_FILE_PATH, "a");
-  fprintf(fp, "[%s] : DC [%d] - MSG SENT - Status %d (%s)\n", time, pid, status, description);
-  fclose(fp);
-
-  //End of critical region
-
-  if (semop (semid, &release_operation, 1) == -1)
-  {
-    //Critical ERROR
-  }
-}
-
-// FUNCTION      : createFilePathIfNotExists
-// DESCRIPTION   : this function creates a filepath if that filepath
-//               - filepath set in #defines of header file
-//
-// PARAMETERS    : none
-//
-//  RETURNS      : void
-void createFilePathIfNotExists(void)
-{
-  struct stat st = {0};
-  if (stat(LOG_FOLDER_PATH, &st) == -1)
-  {
-    mkdir(LOG_FOLDER_PATH, 0700);
-  }
 }
