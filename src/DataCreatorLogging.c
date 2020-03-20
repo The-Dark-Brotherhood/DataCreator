@@ -87,8 +87,11 @@ void writeToLog(int pid, int status)
 
   //open file, write log entry, then close file
   FILE * fp = fopen (LOG_FILE_PATH, "a");
-  fprintf(fp, "[%s] : DC [%d] - MSG SENT - Status %d (%s)\n", time, pid, status, description);
-  fclose(fp);
+  if(fp != NULL)
+  {
+    fprintf(fp, "[%s] : DC [%d] - MSG SENT - Status %d (%s)\n", time, pid, status, description);
+    fclose(fp);
+  }
 
   //End of critical region
 
