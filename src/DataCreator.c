@@ -4,13 +4,12 @@ int main(int argc, char* argv)
 {
 
   //set up the semaphore
-  int semId = setUpLogSemaphore();
   //get the queue Id
   int qID = getQueueID();
   machineProcessingLoop(qID);
 
   //release the semaphore once operation is finished
-  closeLogSemaphore(semId);
+  //closeLogSemaphore(semId);
   return 0;
 }
 
