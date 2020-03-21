@@ -76,7 +76,7 @@ void writeToLog(int pid, int status)
   //Check semaphore to see if can access critical region
   if (semop (semid, &acquire_operation, 1) == -1)
 	{
-	   //Critical ERROR
+	   printf("critical error\n");//Critical ERROR
 	}
   //Start of critical region
 
